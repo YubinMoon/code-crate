@@ -11,7 +11,7 @@ TYPES = [("description", "문제 설명"), ("input", "입력"),
 
 
 class MakeBoj:
-    def __init__(self, args):
+    def __init__(self, args):   
         self.force = args.force
         self.pro_num = args.pro_num
         self.set_config()

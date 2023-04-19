@@ -10,8 +10,8 @@ noTierOnPro=0
 readme=0
 # If the value is not 0, testdata will not be generated.
 testdata=0
-# Set the command name.
-command="boj"
+# Set the command name. 아직 안만듬
+command="boj" 
 
 if [ ! -d "$bojPath" ]; then
     echo "Please set the directory to save Baekjoon problems"
@@ -33,12 +33,14 @@ if [ $testdata = "0" ]; then
     args="${args} --testdata"
 fi
 
-curl -L https://limeskin.kro.kr/files/setting.py > /tmp/setting.py
+curl -L -o /tmp/boj.tar.gz https://limeskin.kro.kr/files/boj.tar.gz
 
 if [ $? -ne 0 ]; then
-    echo "Failed to download the configuration file."
+    echo "Failed to download the file."
     exit 1
 fi
+
+tar xzf /tmp/boj.tar.gz -C /tmp/
 
 /usr/bin/python /tmp/setting.py $args 2> /dev/null
 
@@ -47,16 +49,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-if [ ! -d "${HOME}/.local/bin/liboj" ]; then
-    echo "${HOME}/.local/bin/liboj does not exist"
-    echo "Creating directory"
-    mkdir -p ~/.local/bin/liboj
-    if [ $? -ne 0 ]; then
-        echo "Failed to create the directory."
-        exit 1
-    fi
-fi
 
-curl -L https://limeskin.kro.kr/files/makeboj.py > ${HOME}/.local/bin/liboj/makeboj.py
-curl -L https://limeskin.kro.kr/files/boj > ${HOME}/.local/bin/${command}
-chmod +x ${HOME}/.local/bin/${command}
+rm -r ${HOME}/.local/bin/liboj
+mv /tmp/liboj /tmp/boj ${HOME}/.local/bin/
+chmod +x ${HOME}/.local/bin/boj
