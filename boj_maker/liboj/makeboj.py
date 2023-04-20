@@ -1,6 +1,7 @@
 import os
 import requests
 import configparser
+from . import gpt
 from bs4 import BeautifulSoup
 
 
@@ -11,9 +12,10 @@ TYPES = [("description", "문제 설명"), ("input", "입력"),
 
 
 class MakeBoj:
-    def __init__(self, args):   
+    def __init__(self, args):
         self.force = args.force
         self.pro_num = args.pro_num
+        self.gpt = args.gpt
         self.set_config()
         self.get_problem_data()
         self.set_directory()
@@ -35,6 +37,7 @@ class MakeBoj:
         self.tierdir = properties["DEFAULT"]["tierdir"]
         self.notier = properties["DEFAULT"]["notier"]
         self.readme = properties["DEFAULT"]["readme"]
+        self.apikey = properties["DEFAULT"]["openai"]
         self.testdata = properties["DEFAULT"]["testdata"]
 
         if not os.path.isdir(self.bojPath):
@@ -152,6 +155,18 @@ class MakeBoj:
                 insert(f"### {type[1]}")
                 for detail in self.info[type[0]]:
                     insert(detail)
+
+        if self.gpt:
+            try:
+                print("readme 수정 중...")
+                messages = []
+                messages.append(gpt.make_message(
+                    content="I am a machine translator and I output only the results in markdown based on the user's requested content.", role="system"))
+                messages.append(gpt.make_message(
+                    content=f"{result}\n\nConvert the HTML parts in the file to Markdown, but do not change level of # tags."))
+                result = gpt.chat_comple(apikey=self.apikey, message=messages)
+            except gpt.NoApikey as e:
+                print(e)
 
         with open(self.readme_path, "w") as f:
             f.write(result)

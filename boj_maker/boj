@@ -16,6 +16,8 @@ if __name__ == "__main__":
     parser_make.add_argument("pro_num", help="Problem number", metavar="id")
     parser_make.add_argument(
         "-f", "--force", help="Make force", action="store_true", dest="force")
+    parser_make.add_argument(
+        "-g", "--gpt", help="gpt가 readme를 수정해 줍니다.", action="store_true", dest="gpt")
 
     parser_run = subparsers.add_parser(
         'run', help="문제 정답을 컴파일 합니다.", usage="%(prog)s (id) [option]", prog=" ".join(sys.argv[:-1]))

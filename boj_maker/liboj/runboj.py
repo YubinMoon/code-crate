@@ -104,17 +104,17 @@ class RunBoj:
             self.file = fileList[0]
 
     def compile(self):
-        fileType = self.file.split(".")[-1]
-        if fileType in ["cpp", "c"]:
+        self.fileType = self.file.split(".")[-1]
+        if self.fileType in ["cpp", "c"]:
             output = "a.out"
             os.chdir(self.proPath)
             result = subprocess.run(
-                ["gcc", f"./{self.file}", "-o", f"{output}", "-fdiagnostics-color=always"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                ["g++", f"./{self.file}", "-o", f"{output}", "-fdiagnostics-color=always"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if result.returncode != 0:
                 print(result.stderr.decode("utf-8"), end="")
                 raise RunError
             self.output = os.path.join(self.proPath, output)
-        elif fileType in ["py"]:
+        elif self.fileType in ["py"]:
             self.output = self.file
 
     def get_testdata(self):
