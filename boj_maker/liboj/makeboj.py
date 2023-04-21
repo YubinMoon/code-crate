@@ -76,7 +76,7 @@ class MakeBoj:
             self.rank = 0
         else:
             self.tier = TIER[(self.level-1)//5]
-            self.rank = (self.level-1) % 5
+            self.rank = 5 - (self.level-1) % 5
 
         tier_dir = self.bojPath if self.tierdir != "YES" else os.path.join(
             self.bojPath, self.tier)
