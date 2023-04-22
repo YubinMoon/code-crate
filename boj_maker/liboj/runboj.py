@@ -159,6 +159,11 @@ class RunBoj:
                 if self.noCheck:
                     result = subprocess.run(
                         [f"{self.output}"], input=input, text=True, timeout=5)
+                    if result.returncode != 0:
+                        if result.returncode == -11:
+                            print("Segmentation fault")
+                        else:
+                            print(f"'{result.returncode}' error")
                 else:
                     start = time.time()
                     result = subprocess.run(
