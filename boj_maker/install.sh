@@ -38,7 +38,10 @@ if [ -d $HOME/.local/bin/$COMMAND ]; then
     COMMAND=boj
 fi
 
-rm -r $HOME/.local/bin/liboj
+if [ -d $HOME/.local/bin/liboj]; then
+    rm -r $HOME/.local/bin/liboj
+fi
+
 cp -r ./liboj $HOME/.local/bin/
 cp ./boj $HOME/.local/bin/$COMMAND
 chmod +x $HOME/.local/bin/$COMMAND
