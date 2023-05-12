@@ -1,12 +1,7 @@
 import os
-import sys
-import requests
-import io
-import configparser
 import subprocess
 import logging
 import time
-from bs4 import BeautifulSoup
 from liboj.config import Config
 from fnmatch import fnmatch
 
@@ -19,13 +14,14 @@ class RunError(Exception):
     pass
 
 
-def getMatchingDirectories(directory, pattern) -> str:
+def getMatchingDirectories(directory, pattern) -> list[str]:
+    result = []
     for root, directories, files in os.walk(directory):
         for dir_name in directories:
             if fnmatch(dir_name, pattern):
                 dir_path = os.path.join(root, dir_name)
-                return dir_path
-    return ""
+                result.append(dir_path)
+    return result
 
 
 def getTestdata(proPath: str, one: bool) -> tuple[list, list]:
@@ -101,10 +97,11 @@ def run(args) -> None:
     repeat = args.repeat
 
     proPath = getMatchingDirectories(Config.bojPath, f"*-{proNum}.*")
-    logger.debug(f"problem path: {proPath}")
     if not proPath:
         logger.error(f"{proNum}번 문제를 찾을 수 없습니다.")
         exit(1)
+    proPath = proPath[0]
+    logger.debug(f"problem path: {proPath}")
 
     # set file
     fileList = os.listdir(proPath)

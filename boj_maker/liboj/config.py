@@ -1,5 +1,4 @@
 import os
-import configparser
 import json
 
 class Config:

@@ -3,7 +3,7 @@
 import argparse
 import sys
 import logging
-from liboj import makeboj, runboj
+from liboj import makeboj, runboj, utils
 
 
 class CustomFormatter(logging.Formatter):
@@ -31,13 +31,13 @@ class CustomFormatter(logging.Formatter):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Help users focus on Baekjoon.', usage=f"{sys.argv[0]} (command) (id) [option]")
-    
+        description='Help users focus on Baekjoon.', usage=f"{sys.argv[0]} -h")
+
     subparsers = parser.add_subparsers(
         dest='command', required=True, metavar="command")
 
     parser_make = subparsers.add_parser(
-        'make', help='Make new problem dir', usage="%(prog)s (id) [option]", prog=" ".join(sys.argv[:-1]))
+        'make', help='Make new problem dir', usage=f"{sys.argv[0]} make (id) [option]", prog=" ".join(sys.argv[:-1]))
     parser_make.add_argument("pro_num", help="Problem number", metavar="id")
     parser_make.add_argument(
         "-f", "--force", help="Make force", action="store_true", dest="force")
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     parser_make.add_argument("--debug", help="debuging", action="store_true")
 
     parser_run = subparsers.add_parser(
-        'run', help="문제 정답을 컴파일 합니다.", usage="%(prog)s (id) [option]", prog=" ".join(sys.argv[:-1]))
+        'run', help="문제 정답을 컴파일 합니다.", usage=f"{sys.argv[0]} run (id) [option]")
     parser_run.add_argument("pro_num", help="Problem number", metavar="id")
     parser_run.add_argument(
         "-f", "--name", help="파일 이름 지정(경로 아님)", action="store", dest="name")
@@ -57,6 +57,16 @@ if __name__ == "__main__":
     parser_run.add_argument(
         "-r", "--repeat", help="파일이 변경 될 때 마다 반복", action="store_true", dest="repeat")
     parser_run.add_argument("--debug", help="debuging", action="store_true")
+
+    parser_update = subparsers.add_parser(
+        'update', help="readme 파일을 업데이트 합니다.", usage=f"{sys.argv[0]} update (id|all) [option]")
+    parser_update.add_argument(
+        "pro_num", help="Problem number", metavar="id|all")
+    parser_update.add_argument(
+        "-g", "--gpt", help="gpt가 readme를 수정해 줍니다.", action="store_true", dest="gpt")
+    parser_update.add_argument("--debug", help="debuging", action="store_true")
+    parser_update.add_argument(
+        "-t", help="testdata도 업데이트 합니다.", action="store_true", dest="test")
 
     args = parser.parse_args()
 
@@ -74,3 +84,5 @@ if __name__ == "__main__":
         makeboj.run(args=args)
     elif command == "run":
         runboj.run(args=args)
+    elif command == "update":
+        utils.update(args=args)

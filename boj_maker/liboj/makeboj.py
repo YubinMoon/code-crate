@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 from liboj.config import Config
 from liboj.parser import Parser
@@ -11,7 +12,7 @@ TYPES = [("description", "문제 설명"), ("input", "입력"),
 logger = logging.getLogger(__name__)
 
 
-def getReadme(parser: Parser, gpt: bool) -> str:
+async def setReadme(parser: Parser, file: str, gpt: bool) -> str:
     result = ""
     logger.info("creating readme...")
 
@@ -30,17 +31,45 @@ def getReadme(parser: Parser, gpt: bool) -> str:
     tags = [f"{tag[0]}({tag[1]})" for tag in parser.tag_list]
     insert(", ".join(tags))
 
-    for type in TYPES:
-        if parser.info[type[0]]:
-            insert(f"## {type[1]}")
-            try:
-                text = html2md(
-                    parser.info[type[0]])if gpt else parser.info[type[0]]
-            except NoApikey as e:
-                logger.warning(e)
-                gpt = False
+    if gpt:
+        tasks = []
+        for type in TYPES:
+            if parser.info[type[0]]:
+                task = asyncio.create_task(
+                    html2md(type[0], parser.info[type[0]]))
+                tasks.append(task)
+        try:
+            results = await asyncio.gather(*tasks)
+        except NoApikey as e:
+            logger.warning(e)
+            gpt = False
+        results = {result[0]: result[1] for result in results}
+        logger.info(results)
+        for type in TYPES:
+            if results.get(type[0]):
+                insert(f"## {type[1]}")
+                text = results[type[0]]
+                insert(text)
+
+    if not gpt:
+        for type in TYPES:
+            if parser.info[type[0]]:
+                insert(f"## {type[1]}")
                 text = parser.info[type[0]]
-            insert(text)
+                insert(text)
+    with open(file, "w") as f:
+        f.write(result)
+
+
+def getTestdata(parser: Parser) -> str:
+    result = ""
+    for i in range(len(parser.input)):
+        result += "input>\n"
+        result += parser.input[i]
+        result += "<end\n"
+        result += "output>\n"
+        result += parser.output[i]
+        result += "<end\n\n"
     return result
 
 
@@ -74,23 +103,16 @@ def run(args) -> None:
     if not force and os.path.isfile(readmePath):
         logger.warning(f"'{readmePath}' is exist - run with force")
     else:
-        result = getReadme(parser=parser, gpt=gpt)
-        with open(readmePath, "w") as f:
-            f.write(result)
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(
+            setReadme(parser=parser, file=readmePath, gpt=gpt))
 
     # create testdata
     testPath = os.path.join(pro_dir, "testdata.txt")
     if not force and os.path.isfile(testPath):
         logger.warning(f"'{testPath}' is exist - run with force")
     else:
-        result = ""
-        for i in range(len(parser.input)):
-            result += "input>\n"
-            result += parser.input[i]
-            result += "<end\n"
-            result += "output>\n"
-            result += parser.output[i]
-            result += "<end\n\n"
+        result = getTestdata(parser=parser)
         with open(testPath, "w") as f:
             f.write(result)
 
