@@ -2,7 +2,6 @@ import os
 import re
 import asyncio
 import logging
-import subprocess
 from liboj.config import Config
 from liboj.runboj import getMatchingDirectories
 from liboj.parser import Parser

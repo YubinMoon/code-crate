@@ -1,9 +1,17 @@
 #!/usr/bin/python
-
-import argparse
-import sys
-import logging
-from liboj import makeboj, runboj, utils
+import re
+import subprocess
+while True:
+    try:
+        import argparse
+        import sys
+        import logging
+        from liboj import makeboj, runboj, utils
+        break
+    except ModuleNotFoundError as e:
+        missing_module = re.search("'([a-z A-Z0-9]+)'",str(e)).group(1)
+        print(f"Module '{missing_module}' is missing. Downloading...")
+        subprocess.run(['python', '-m', 'pip', 'install', missing_module])
 
 
 class CustomFormatter(logging.Formatter):

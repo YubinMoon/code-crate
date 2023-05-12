@@ -89,7 +89,7 @@ def getChange(file):
             break
 
 
-def run(args) -> None:
+def run(args) -> bool:
     name = args.name
     noCheck = args.noCheck
     one = args.one
@@ -127,6 +127,7 @@ def run(args) -> None:
         file = fileList[0]
     logger.debug(f"file name: {file}")
 
+    returnerror = False
     try:
         while True:
             try:
@@ -140,6 +141,7 @@ def run(args) -> None:
                             result = subprocess.run(
                                 [f"{runfile}"], input=input, text=True, timeout=5)
                             if result.returncode != 0:
+                                returnerror = True
                                 if result.returncode == -11:
                                     print("Segmentation fault")
                                 else:
@@ -149,7 +151,10 @@ def run(args) -> None:
                             result = subprocess.run(
                                 [f"{runfile}"], input=input, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
                             end = time.time() - start
-                            if result.stdout == output:
+                            if result.returncode != 0:
+                                returnerror = True
+                                print(result.stderr)
+                            elif result.stdout == output:
                                 print(
                                     f"{i}: success {format(end*1000,'.3f')}ms")
                             else:
@@ -170,3 +175,4 @@ def run(args) -> None:
             break
     except KeyboardInterrupt:
         logger.info("exit by key")
+    return returnerror
