@@ -1,13 +1,38 @@
 #!/usr/bin/python
 
 import argparse
-import readline
-import rlcompleter
 import sys
+import logging
+from liboj import makeboj, runboj
+
+
+class CustomFormatter(logging.Formatter):
+    green = '\x1b[32;1m'
+    grey = "\x1b[38;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    bold_red = "\x1b[31;1m"
+    reset = "\x1b[0m"
+    format = "%(levelname)s:%(name)s - %(message)s"
+
+    FORMATS = {
+        logging.DEBUG: grey + format + reset,
+        logging.INFO: green + format + reset,
+        logging.WARNING: yellow + format + reset,
+        logging.ERROR: red + format + reset,
+        logging.CRITICAL: bold_red + format + reset
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Help users focus on Baekjoon.', usage=f"{sys.argv[0]} (command) (id) [option]")
+    
     subparsers = parser.add_subparsers(
         dest='command', required=True, metavar="command")
 
@@ -18,6 +43,7 @@ if __name__ == "__main__":
         "-f", "--force", help="Make force", action="store_true", dest="force")
     parser_make.add_argument(
         "-g", "--gpt", help="gpt가 readme를 수정해 줍니다.", action="store_true", dest="gpt")
+    parser_make.add_argument("--debug", help="debuging", action="store_true")
 
     parser_run = subparsers.add_parser(
         'run', help="문제 정답을 컴파일 합니다.", usage="%(prog)s (id) [option]", prog=" ".join(sys.argv[:-1]))
@@ -30,13 +56,21 @@ if __name__ == "__main__":
         "-o", "--one", help="첫 번째 input만 테스트함", action="store_true", dest="one")
     parser_run.add_argument(
         "-r", "--repeat", help="파일이 변경 될 때 마다 반복", action="store_true", dest="repeat")
+    parser_run.add_argument("--debug", help="debuging", action="store_true")
 
     args = parser.parse_args()
 
+    ch = logging.StreamHandler()
+    ch.setFormatter(CustomFormatter())
+    logger = logging.getLogger()
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+    logger.addHandler(ch)
+
     command = args.command
     if command == "make":
-        from liboj import MakeBoj
-        MakeBoj(args=args)
+        makeboj.run(args=args)
     elif command == "run":
-        from liboj import RunBoj
-        RunBoj(args=args)
+        runboj.run(args=args)

@@ -4,8 +4,13 @@ import requests
 import io
 import configparser
 import subprocess
+import logging
 import time
 from bs4 import BeautifulSoup
+from liboj.config import Config
+from fnmatch import fnmatch
+
+logger = logging.getLogger(__name__)
 
 TYPES = [".cpp", ".c", ".py"]
 
@@ -14,177 +19,157 @@ class RunError(Exception):
     pass
 
 
-class RunBoj:
-    def __init__(self, args):
-        self.name = args.name
-        self.noCheck = args.noCheck
-        self.one = args.one
-        self.pro_num = args.pro_num
-        self.repeat = args.repeat
-        self.set_config()
-        self.get_pro_dir()
-        self.get_pro_file()
-        try:
+def getMatchingDirectories(directory, pattern) -> str:
+    for root, directories, files in os.walk(directory):
+        for dir_name in directories:
+            if fnmatch(dir_name, pattern):
+                dir_path = os.path.join(root, dir_name)
+                return dir_path
+    return ""
+
+
+def getTestdata(proPath: str, one: bool) -> tuple[list, list]:
+    inputs = []
+    outputs = []
+    testFile = os.path.join(proPath, "testdata.txt")
+    try:
+        with open(testFile, "r") as f:
             while True:
-                try:
-                    self.compile()
-                    self.get_testdata()
-                    self.run_code()
-                    if self.repeat:
-                        self.get_change()
-                        continue
-                except RunError:
-                    pass
-                break
-        except KeyboardInterrupt:
-            print("exit by key")
+                a = f.readline()
+                if "input>" in a:
+                    input = ""
+                    while True:
+                        a = f.readline()
+                        if "<end" in a:
+                            break
+                        input += a
+                    inputs.append(input)
+                if "output>" in a:
+                    output = ""
+                    while True:
+                        a = f.readline()
+                        if "<end" in a:
+                            break
+                        output += a
+                    outputs.append(output)
+                if not a:
+                    break
+    except FileNotFoundError:
+        logger.error(f"'{testFile}'이 존재하지 않습니다.")
+        exit(1)
+    if len(inputs) != len(outputs):
+        logger.error(f"'{testFile}'에 오류가 있습니다.")
+        exit(1)
+    if one:
+        inputs = [inputs[0]]
+        outputs = [outputs[0]]
 
-    def set_config(self):
-        home = os.getenv("HOME")
-        configPath = os.path.join(home, ".config/boj/config.ini")
-        properties = configparser.ConfigParser()
-        properties.read(configPath)
-        self.bojPath = properties["DEFAULT"]["bojpath"]
-        self.tierdir = properties["DEFAULT"]["tierdir"]
-        self.notier = properties["DEFAULT"]["notier"]
-        self.readme = properties["DEFAULT"]["readme"]
-        self.testdata = properties["DEFAULT"]["testdata"]
+    return inputs, outputs
 
-        if not os.path.isdir(self.bojPath):
-            print(f"{self.bojPath} does not exist")
-            print("Create the directory and retry")
-            print(f"or modify {configPath}")
-            exit(1)
 
-    def get_pro_dir(self):
-        self.tierPath = self.bojPath
-        self.proPath = None
+def getCompile(proPath: str, file: str) -> str:
+    fileType = file.split(".")[-1]
+    logger.debug(f"file type: {fileType}")
+    if fileType in ["cpp", "c"]:
+        output = "a.out"
+        os.chdir(proPath)
+        result = subprocess.run(
+            ["g++", f"./{file}", "-o", f"{output}", "-fdiagnostics-color=always"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode != 0:
+            print(result.stderr.decode("utf-8"), end="")
+            raise RunError
+        output = os.path.join(proPath, output)
+    elif fileType in ["py"]:
+        output = os.path.join(proPath, file)
+    return output
 
-        def find_pro_title(path):
-            pro_dir = os.listdir(path)
-            for title in pro_dir:
-                if str(self.pro_num) in title:
-                    self.proPath = os.path.join(self.tierPath, title)
 
-        if self.tierdir == "YES":
-            tiers = os.listdir(self.bojPath)
-            for tier in tiers:
-                self.tierPath = os.path.join(self.bojPath, tier)
-                find_pro_title(os.path.join(self.bojPath, tier))
-        else:
-            find_pro_title(self.bojPath)
-        if not self.proPath:
-            print(f"{self.pro_num}번 문제를 찾을 수 없습니다.")
-            exit(1)
+def getChange(file):
+    before = os.path.getmtime(file)
+    while True:
+        time.sleep(0.1)
+        after = os.path.getmtime(file)
+        if before != after:
+            break
 
-    def get_pro_file(self):
-        fileList = os.listdir(self.proPath)
-        fileList = [
-            file for file in fileList for type in TYPES if file.endswith(type)]
-        if not fileList:
-            print(f"'{self.proPath}'에 실행 가능한 파일이 없습니다.")
-            exit(1)
-        if self.name:
-            fileList = [file for file in fileList if self.name in file]
-            if not fileList:
-                print(f"'{self.proPath}'에 '{self.name}'파일이 존재하지 않습니다.")
-                exit(1)
-        if len(fileList) > 1:
-            userIn = 0
-            for i, file in enumerate(fileList):
-                print(f"{i+1}: {file}")
-            while not 1 <= userIn <= len(fileList):
-                try:
-                    print("실행 할 파일을 선택하세요 >> ", end="")
-                    userIn = int(input())
-                except ValueError:
-                    continue
-            self.file = fileList[userIn-1]
-        else:
-            self.file = fileList[0]
 
-    def compile(self):
-        self.fileType = self.file.split(".")[-1]
-        if self.fileType in ["cpp", "c"]:
-            output = "a.out"
-            os.chdir(self.proPath)
-            result = subprocess.run(
-                ["g++", f"./{self.file}", "-o", f"{output}", "-fdiagnostics-color=always"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if result.returncode != 0:
-                print(result.stderr.decode("utf-8"), end="")
-                raise RunError
-            self.output = os.path.join(self.proPath, output)
-        elif self.fileType in ["py"]:
-            self.output = self.file
+def run(args) -> None:
+    name = args.name
+    noCheck = args.noCheck
+    one = args.one
+    proNum = args.pro_num
+    repeat = args.repeat
 
-    def get_testdata(self):
-        self.inputs = []
-        self.outputs = []
-        testFile = os.path.join(self.proPath, "testdata.txt")
-        try:
-            with open(testFile, "r") as f:
-                while True:
-                    a = f.readline()
-                    if "input>" in a:
-                        input = ""
-                        while True:
-                            a = f.readline()
-                            if "<end" in a:
-                                break
-                            input += a
-                        self.inputs.append(input)
-                    if "output>" in a:
-                        output = ""
-                        while True:
-                            a = f.readline()
-                            if "<end" in a:
-                                break
-                            output += a
-                        self.outputs.append(output)
-                    if not a:
-                        break
-        except FileNotFoundError:
-            print(f"'{testFile}'이 존재하지 않습니다.")
-            exit(1)
-        if len(self.inputs) != len(self.outputs):
-            print(f"'{testFile}'에 오류가 있습니다.")
-        if self.one:
-            self.inputs = [self.inputs[0]]
-            self.outputs = [self.outputs[0]]
+    proPath = getMatchingDirectories(Config.bojPath, f"*-{proNum}.*")
+    logger.debug(f"problem path: {proPath}")
+    if not proPath:
+        logger.error(f"{proNum}번 문제를 찾을 수 없습니다.")
+        exit(1)
 
-    def run_code(self):
-        i = 1
-        try:
-            for input, output in zip(self.inputs, self.outputs):
-                if self.noCheck:
-                    result = subprocess.run(
-                        [f"{self.output}"], input=input, text=True, timeout=5)
-                    if result.returncode != 0:
-                        if result.returncode == -11:
-                            print("Segmentation fault")
-                        else:
-                            print(f"'{result.returncode}' error")
-                else:
-                    start = time.time()
-                    result = subprocess.run(
-                        [f"{self.output}"], input=input, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
-                    end = time.time() - start
-                    if result.stdout == output:
-                        print(f"{i}: success {format(end*1000,'.3f')}ms")
-                    else:
-                        print(f"{i}: fail")
-                        print("need:")
-                        print(output)
-                        print("output:")
-                        print(result.stdout)
-                    i += 1
-        except subprocess.TimeoutExpired:
-            print("timed out after 5 sec")
+    # set file
+    fileList = os.listdir(proPath)
+    fileList = [
+        file for file in fileList for type in TYPES if file.endswith(type)]
+    if name:
+        fileList = [file for file in fileList if name in file]
+    if not fileList:
+        logger.error(
+            f"'{proPath}'에 '{name}'파일이 존재하지 않습니다." if name else f"'{proPath}'에 실행 가능한 파일이 없습니다.")
+        exit(1)
+    if len(fileList) > 1:
+        userIn = 0
+        for i, file in enumerate(fileList):
+            print(f"{i+1}: {file}")
+        while not 1 <= userIn <= len(fileList):
+            try:
+                userIn = int(input("실행 할 파일을 선택하세요 >> "))
+            except ValueError:
+                continue
+        file = fileList[userIn-1]
+    else:
+        file = fileList[0]
+    logger.debug(f"file name: {file}")
 
-    def get_change(self):
-        before = os.path.getmtime(self.file)
+    try:
         while True:
-            time.sleep(0.1)
-            after = os.path.getmtime(self.file)
-            if before != after:
-                break
+            try:
+                runfile = getCompile(proPath=proPath, file=file)
+                logger.debug(f"run file: {runfile}")
+                inputs, outputs = getTestdata(proPath=proPath, one=one)
+                i = 1
+                try:
+                    for input, output in zip(inputs, outputs):
+                        if noCheck:
+                            result = subprocess.run(
+                                [f"{runfile}"], input=input, text=True, timeout=5)
+                            if result.returncode != 0:
+                                if result.returncode == -11:
+                                    print("Segmentation fault")
+                                else:
+                                    print(f"'{result.returncode}' error")
+                        else:
+                            start = time.time()
+                            result = subprocess.run(
+                                [f"{runfile}"], input=input, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
+                            end = time.time() - start
+                            if result.stdout == output:
+                                print(
+                                    f"{i}: success {format(end*1000,'.3f')}ms")
+                            else:
+                                print(f"{i}: fail")
+                                print("need:")
+                                print(output)
+                                print("output:")
+                                print(result.stdout)
+                            i += 1
+                except subprocess.TimeoutExpired:
+                    print("timed out after 5 sec")
+
+                if repeat:
+                    getChange(file=file)
+                    continue
+            except RunError:
+                pass
+            break
+    except KeyboardInterrupt:
+        logger.info("exit by key")

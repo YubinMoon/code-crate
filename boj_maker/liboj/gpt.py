@@ -2,6 +2,10 @@ import os
 import requests
 import configparser
 import re
+import logging
+from liboj.config import Config
+
+logger = logging.getLogger(__name__)
 
 
 class NoApikey(Exception):
@@ -14,11 +18,11 @@ class NoApikey(Exception):
         return result
 
 
-def make_message(content: str, role: str = "user"):
+def make_message(content: str, role: str = "user") -> dict[str, str]:
     return {"role": role, "content": content}
 
 
-def chat_comple(apikey: str, message: list):
+def chat_comple(apikey: str, message: list) -> str:
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {apikey}"
@@ -26,7 +30,7 @@ def chat_comple(apikey: str, message: list):
     data = {
         "model": "gpt-3.5-turbo",
         "messages": message,
-        "temperature": 0.8,
+        "temperature": 0,
         "top_p": 1,
     }
     result = requests.post(
@@ -38,6 +42,16 @@ def chat_comple(apikey: str, message: list):
     res = result.json()
     response = res["choices"][0]["message"]["content"]
     return response
+
+
+def html2md(text: str) -> str:
+    messages = []
+    logger.debug(f"get gpt {text}")
+    messages.append(make_message(content="You are an AI that translates html into markdown format. You only print the results.",role="system"))
+    messages.append(make_message(
+        content=f"{text}"))
+    result = chat_comple(apikey=Config.openai, message=messages)
+    return result
 
 
 if __name__ == "__main__":

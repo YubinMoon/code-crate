@@ -1,186 +1,98 @@
 import os
-import requests
-import configparser
-from . import gpt
-from bs4 import BeautifulSoup
+import logging
+from liboj.config import Config
+from liboj.parser import Parser
+from liboj.gpt import html2md, NoApikey
 
-
-TIER = ["Bronze", "Silver", "Gold", "Platinum", "Diamond", "Ruby"]
 RANK = ["I", "II", "III", "IV", "V"]
 TYPES = [("description", "문제 설명"), ("input", "입력"),
          ("output", "출력"), ("limit", "제한")]
 
+logger = logging.getLogger(__name__)
 
-class MakeBoj:
-    def __init__(self, args):
-        self.force = args.force
-        self.pro_num = args.pro_num
-        self.gpt = args.gpt
-        self.set_config()
-        self.get_problem_data()
-        self.set_directory()
-        self.get_boj_info()
-        self.create_files()
 
-        if self.readme == "YES":
-            self.create_readme()
+def getReadme(parser: Parser, gpt: bool) -> str:
+    result = ""
+    logger.info("creating readme...")
 
-        if self.testdata == "YES":
-            self.create_testdata()
+    def insert(content: str):
+        nonlocal result
+        result += content
+        result += "\n\n"
 
-    def set_config(self):
-        home = os.getenv("HOME")
-        configPath = os.path.join(home, ".config/boj/config.ini")
-        properties = configparser.ConfigParser()
-        properties.read(configPath)
-        self.bojPath = properties["DEFAULT"]["bojpath"]
-        self.tierdir = properties["DEFAULT"]["tierdir"]
-        self.notier = properties["DEFAULT"]["notier"]
-        self.readme = properties["DEFAULT"]["readme"]
-        self.apikey = properties["DEFAULT"]["openai"]
-        self.testdata = properties["DEFAULT"]["testdata"]
+    insert(f"# [{parser.tier} {RANK[parser.rank-1]}] {parser.title}")
+    insert(
+        f"[문제 링크](https://www.acmicpc.net/problem/{parser.pro_num})")
+    insert(f"## 성능 요약")
+    if parser.timeText:
+        insert(f"{parser.memText}, {parser.timeText}")
+    insert(f"## 분류")
+    tags = [f"{tag[0]}({tag[1]})" for tag in parser.tag_list]
+    insert(", ".join(tags))
 
-        if not os.path.isdir(self.bojPath):
-            print(f"{self.bojPath} does not exist")
-            print("Create the directory and retry")
-            print(f"or modify {configPath}")
-            exit(1)
-
-    def get_problem_data(self):
-        url = "https://solved.ac/api/v3/problem/show"
-        headers = {"Content-Type": "application/json"}
-        params = {"problemId": self.pro_num}
-
-        response = requests.get(url, headers=headers, params=params)
-        data = response.json()
-        self.id = data.get("problemId", 00000)
-        self.title = data.get("titleKo", "title")
-        self.level = data.get("level", 0)
-        tags = data['tags']
-        tag_name_list = [tag["displayNames"] for tag in tags]
-
-        self.tag_list = []
-        for names in tag_name_list:
-            ko = "no result"
-            en = "no result"
-            for name in names:
-                if name["language"] == "ko":
-                    ko = name["name"]
-                if name["language"] == "en":
-                    en = name["name"]
-            self.tag_list = [*self.tag_list, [ko, en]]
-
-    def set_directory(self):
-        if self.level == 0:
-            self.tier = "Unrated"
-            self.rank = 0
-        else:
-            self.tier = TIER[(self.level-1)//5]
-            self.rank = 5 - (self.level-1) % 5
-
-        tier_dir = self.bojPath if self.tierdir != "YES" else os.path.join(
-            self.bojPath, self.tier)
-        if not os.path.isdir(tier_dir):
-            print(f"{tier_dir} does not exist")
-            print(f"create {tier_dir}")
-            os.mkdir(tier_dir)
-
-        pro_dir_name = f"{self.rank}-{self.id}. {self.title}" if self.notier == "YES" else f"{self.tier}{self.rank}-{self.id}. {self.title}"
-        self.pro_dir = os.path.join(tier_dir, pro_dir_name)
-
-        if os.path.isdir(self.pro_dir):
-            print(f"{self.pro_dir} already exists")
-            if self.force:
-                print(f"Force create")
-            else:
-                print("Retry with force option")
-                exit(1)
-        else:
-            os.mkdir(self.pro_dir)
-
-    def create_files(self):
-        self.readme_path = os.path.join(self.pro_dir, "README.md")
-        self.data_path = os.path.join(self.pro_dir, "testdata.txt")
-        cfile_path = os.path.join(self.pro_dir, "a.cpp")
-
-        with open(cfile_path, "a") as fp:
-            pass
-
-    def get_boj_info(self):
-        self.info = {}
-        self.input = []
-        self.output = []
-        url = f"https://www.acmicpc.net/problem/{self.id}"
-        headers = {
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0Win64x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
-        }
-        response = requests.get(url, headers=headers)
-        html = response.text
-        soup = BeautifulSoup(html, 'html.parser')
-
-        for type in TYPES:
-            div_tag = soup.select_one(
-                f"#problem_{type[0]}").find_all(recursive=False)
-            self.info[type[0]] = [str(tag) for tag in div_tag]
-
-        i = 0
-        while True:
-            i += 1
-            testIn = soup.select_one(f"#sample-input-{i}")
-            testOut = soup.select_one(f"#sample-output-{i}")
-            if not testIn or not testOut:
-                break
-            txtIn = testIn.text
-            txtOut = testOut.text
-            self.input.append(txtIn)
-            self.output.append(txtOut)
-
-    def create_readme(self):
-        result = ""
-
-        def insert(content: str):
-            nonlocal result
-            result += content
-            result += "\n\n"
-
-        insert(f"# [{self.tier} {RANK[self.rank-1]}] {self.title}")
-        insert(f"[문제 링크](https://www.acmicpc.net/problem/{self.id})")
-        insert(f"### 성능 요약")
-        insert(f"### 분류")
-        tags = [f"{tag[0]}({tag[1]})" for tag in self.tag_list]
-        insert(", ".join(tags))
-
-        for type in TYPES:
-            if self.info[type[0]]:
-                insert(f"### {type[1]}")
-                for detail in self.info[type[0]]:
-                    insert(detail)
-
-        if self.gpt:
+    for type in TYPES:
+        if parser.info[type[0]]:
+            insert(f"## {type[1]}")
             try:
-                print("readme 수정 중...")
-                messages = []
-                messages.append(gpt.make_message(
-                    content="I am a machine translator and I output only the results in markdown based on the user's requested content.", role="system"))
-                messages.append(gpt.make_message(
-                    content=f"{result}\n\nConvert the HTML parts in the file to Markdown, but do not change level of # tags."))
-                result = gpt.chat_comple(apikey=self.apikey, message=messages)
-            except gpt.NoApikey as e:
-                print(e)
+                text = html2md(
+                    parser.info[type[0]])if gpt else parser.info[type[0]]
+            except NoApikey as e:
+                logger.warning(e)
+                gpt = False
+                text = parser.info[type[0]]
+            insert(text)
+    return result
 
-        with open(self.readme_path, "w") as f:
+
+def run(args) -> None:
+    force = args.force
+    gpt = args.gpt
+    parser = Parser(pro_num=args.pro_num)
+
+    if force:
+        logger.warning("force running")
+    logger.info(f"title: {parser.title}")
+
+    # set pro dir
+    tier_dir = os.path.join(
+        Config.bojPath, parser.tier) if Config.tierdir else Config.bojPath
+    if not os.path.isdir(tier_dir):
+        logger.debug(f"{tier_dir} does not exist")
+        logger.info(f"create {tier_dir}")
+        os.mkdir(tier_dir)
+
+    pro_dir_name = f"{parser.tier}{parser.rank}-{parser.pro_num}. {parser.title}" if Config.tierOnName else f"{parser.rank}-{parser.pro_num}. {parser.title}"
+    pro_dir = os.path.join(tier_dir, pro_dir_name)
+
+    if os.path.isdir(pro_dir):
+        logger.info(f"{pro_dir} already exists")
+    else:
+        os.mkdir(pro_dir)
+
+    # create readme
+    readmePath = os.path.join(pro_dir, "README.md")
+    if not force and os.path.isfile(readmePath):
+        logger.warning(f"'{readmePath}' is exist - run with force")
+    else:
+        result = getReadme(parser=parser, gpt=gpt)
+        with open(readmePath, "w") as f:
             f.write(result)
 
-    def create_testdata(self):
+    # create testdata
+    testPath = os.path.join(pro_dir, "testdata.txt")
+    if not force and os.path.isfile(testPath):
+        logger.warning(f"'{testPath}' is exist - run with force")
+    else:
         result = ""
-
-        for i in range(len(self.input)):
+        for i in range(len(parser.input)):
             result += "input>\n"
-            result += self.input[i]
+            result += parser.input[i]
             result += "<end\n"
             result += "output>\n"
-            result += self.output[i]
+            result += parser.output[i]
             result += "<end\n\n"
+        with open(testPath, "w") as f:
+            f.write(result)
 
-        with open(self.data_path, "w") as fp:
-            fp.write(result)
+    with open(os.path.join(pro_dir, "a.cpp"), "a") as f:
+        pass
