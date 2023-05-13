@@ -7,6 +7,7 @@ while True:
         import sys
         import logging
         from liboj import makeboj, runboj, utils
+        from liboj.parser import ParserError
         break
     except ModuleNotFoundError as e:
         missing_module = re.search("'([a-z A-Z0-9]+)'",str(e)).group(1)
@@ -87,10 +88,13 @@ if __name__ == "__main__":
         logger.setLevel(logging.INFO)
     logger.addHandler(ch)
 
-    command = args.command
-    if command == "make":
-        makeboj.run(args=args)
-    elif command == "run":
-        runboj.run(args=args)
-    elif command == "update":
-        utils.update(args=args)
+    try:
+        command = args.command
+        if command == "make":
+            makeboj.run(args=args)
+        elif command == "run":
+            runboj.run(args=args)
+        elif command == "update":
+            utils.update(args=args)
+    except ParserError:
+        logger.error(f"문제 번호가 존재하지 않습니다.")

@@ -94,7 +94,6 @@ class Parser:
 
     def get_pro_status(self):
         url = f"https://www.acmicpc.net/status?from_mine=1&problem_id={self._pro_num}&user_id={Config.bojID}"
-        print(url)
         headers = {
             "user-agent": "Mozilla/5.0 (Windows NT 10.0Win64x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
         }
