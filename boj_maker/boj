@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import re
 import subprocess
+import textwrap
 while True:
     try:
         import argparse
@@ -10,7 +11,7 @@ while True:
         from liboj.parser import ParserError
         break
     except ModuleNotFoundError as e:
-        missing_module = re.search("'([a-z A-Z0-9]+)'",str(e)).group(1)
+        missing_module = re.search("'([a-z A-Z0-9]+)'", str(e)).group(1)
         print(f"Module '{missing_module}' is missing. Downloading...")
         subprocess.run(['python', '-m', 'pip', 'install', missing_module])
 
@@ -58,7 +59,7 @@ if __name__ == "__main__":
         'run', help="문제 정답을 컴파일 합니다.", usage=f"{sys.argv[0]} run (id) [option]")
     parser_run.add_argument("pro_num", help="Problem number", metavar="id")
     parser_run.add_argument(
-        "-f", "--name", help="파일 이름 지정(경로 아님)", action="store", dest="name")
+        "-n", "--name", help="파일 이름 지정(경로 아님)", action="store", dest="name")
     parser_run.add_argument(
         "-c", "--no-check", help="정답을 확인하지 않음", action="store_true", dest="noCheck")
     parser_run.add_argument(
@@ -73,9 +74,19 @@ if __name__ == "__main__":
         "pro_num", help="Problem number", metavar="id|all")
     parser_update.add_argument(
         "-g", "--gpt", help="gpt가 readme를 수정해 줍니다.", action="store_true", dest="gpt")
-    parser_update.add_argument("--debug", help="debuging", action="store_true")
     parser_update.add_argument(
         "-t", help="testdata도 업데이트 합니다.", action="store_true", dest="test")
+    parser_update.add_argument("--debug", help="debuging", action="store_true")
+
+    parser_random = subparsers.add_parser(
+        'random', help="랜덤으로 문제를 가져옵니다.", usage=f"{sys.argv[0]} random [option]"
+    )
+
+    parser_random.add_argument(
+        "level", help="problem level", metavar="LEVEL", nargs="*")
+    parser_random.add_argument(
+        "-r", "--repeat", help="반복합니다.", action="store_true", dest='repeat')
+    parser_random.add_argument("--debug", help="debuging", action="store_true")
 
     args = parser.parse_args()
 
@@ -96,5 +107,7 @@ if __name__ == "__main__":
             runboj.run(args=args)
         elif command == "update":
             utils.update(args=args)
+        elif command == "random":
+            utils.random(args=args)
     except ParserError:
         logger.error(f"문제 번호가 존재하지 않습니다.")

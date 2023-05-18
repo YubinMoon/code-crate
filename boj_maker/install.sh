@@ -38,7 +38,7 @@ if [ -d $HOME/.local/bin/$COMMAND ]; then
     COMMAND=boj
 fi
 
-if [ -d $HOME/.local/bin/liboj]; then
+if [ -d $HOME/.local/bin/liboj ]; then
     rm -r $HOME/.local/bin/liboj
 fi
 
